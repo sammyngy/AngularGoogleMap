@@ -1,4 +1,5 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import * as firebase from 'firebase';
 
 
 
@@ -14,6 +15,17 @@ const options = {
 let infowindow: any;
 const iconBase = 'http://maps.google.com/mapfiles/ms/icons/';
 
+export const snapshotToArray = (snapshot: any) => {
+  const returnArr = [];
+
+  snapshot.forEach((childSnapshot: any) => {
+      const item = childSnapshot.val();
+      item.key = childSnapshot.key;
+      returnArr.push(item);
+  });
+
+  return returnArr;
+};
 @Component({
   selector: 'app-donor-list',
   templateUrl: './donor-list.component.html',
@@ -21,6 +33,7 @@ const iconBase = 'http://maps.google.com/mapfiles/ms/icons/';
 })
 export class DonorListComponent implements OnInit {
   @ViewChild('map', {static: false}) mapElement: ElementRef;
+  donors = [];
 
   initMap() {
     navigator.geolocation.getCurrentPosition((location) => {
@@ -55,7 +68,28 @@ export class DonorListComponent implements OnInit {
       console.log(error);
     }, options);
   }
+  createMarkers(place: any) {
+    const latitude = parseFloat(place.coords.latitude);
+    const longitude = parseFloat(place.coords.longitude);
+    const donorMarker = new google.maps.Marker({
+      map,
+      position: { lat: latitude, lng: longitude },
+      icon: iconBase + 'green-dot.png'
+    });
+  
+    google.maps.event.addListener(donorMarker, 'click', function() {
+      infowindow.setContent('<h3>' + place.name + '</h3><p>Phone number: ' + place.phone + '<br>Email: ' + place.email + '</p>');
+      infowindow.open(map, this);
+    });
+  }
   constructor() {
+    firebase.database().ref('donors/').on('value', resp => {
+      this.donors = [];
+      this.donors = snapshotToArray(resp);
+      for (const donor of this.donors) {
+        this.createMarkers(donor);
+      }
+    });
     this.initMap();
   }
 
